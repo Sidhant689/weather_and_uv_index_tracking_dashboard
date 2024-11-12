@@ -7,8 +7,8 @@ import WeatherMetric from './WeatherMetric';
 import { getWeatherDescription } from '../../utils/getWeatherDescription';
 
 const CurrentWeather = ({ currentWeather, rainChance, locationName, weatherCode }) => {
-  const weatherDescription = getWeatherDescription(weatherCode);
-
+  const weatherDescription = getWeatherDescription(currentWeather.weather_code);
+debugger
   return (
     <StyledCard>
       <div className="mb-4 flex items-center justify-between">

@@ -3,16 +3,51 @@ import { useState, useEffect } from "react";
 const GEOCODING_API_URL = "https://geocoding-api.open-meteo.com/v1/search";
 const WEATHER_API_URL = "https://api.open-meteo.com/v1/forecast";
 
-export const useWeatherData = (location) => {
+export const useWeatherData = (location = null) => {
   const [currentWeather, setCurrentWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentLocation, setCurrentLocation] = useState(location);
 
-  const getLocationCoordinates = async (location) => {
+  // Get user's current location coordinates
+  useEffect(() => {
+    if (!location) {
+      setLoading(true);
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            try {
+              const { latitude, longitude } = position.coords;
+              const response = await fetch(
+                `${GEOCODING_API_URL}?latitude=${latitude}&longitude=${longitude}&count=1`
+              );
+              const data = await response.json();
+              if (data.results?.length > 0) {
+                setCurrentLocation(data.results[0].name);
+              } else {
+                setCurrentLocation("Bangalore"); // Fallback location
+              }
+            } catch (error) {
+              console.error("Error getting location name:", error);
+              setCurrentLocation("Bangalore"); // Fallback location
+            }
+          },
+          (error) => {
+            console.error("Geolocation error:", error);
+            setCurrentLocation("Bangalore"); // Fallback location
+          }
+        );
+      } else {
+        setCurrentLocation("Bangalore"); // Fallback location
+      }
+    }
+  }, [location]);
+
+  const getLocationCoordinates = async (loc) => {
     try {
       const response = await fetch(
-        `${GEOCODING_API_URL}?name=${encodeURIComponent(location)}&count=1`
+        `${GEOCODING_API_URL}?name=${encodeURIComponent(loc)}&count=1`
       );
 
       if (!response.ok) {
@@ -22,7 +57,7 @@ export const useWeatherData = (location) => {
       const data = await response.json();
 
       if (!data.results?.length) {
-        throw new Error(`Location "${location}" not found`);
+        throw new Error(`Location "${loc}" not found`);
       }
 
       return {
@@ -37,11 +72,13 @@ export const useWeatherData = (location) => {
 
   useEffect(() => {
     const fetchWeatherData = async () => {
+      if (!currentLocation) return;
+      
       try {
         setLoading(true);
         setError(null);
 
-        const { latitude, longitude, timezone } = await getLocationCoordinates(location);
+        const { latitude, longitude, timezone } = await getLocationCoordinates(currentLocation);
 
         const weatherResponse = await fetch(
           `${WEATHER_API_URL}?` + new URLSearchParams({
@@ -108,10 +145,14 @@ export const useWeatherData = (location) => {
       }
     };
 
-    if (location) {
-      fetchWeatherData();
-    }
-  }, [location]);
+    fetchWeatherData();
+  }, [currentLocation]);
 
-  return { currentWeather, forecast, loading, error };
+  return { 
+    currentWeather, 
+    forecast, 
+    loading, 
+    error,
+    currentLocation // Added to return value
+  };
 };
